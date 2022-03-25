@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title><%= htmlWebpackPlugin.options.title %></title>
+    <!-- 引入Baidu地图 -->
+    <script src="js/baidu-map/map3.0_init.js"></script>
+    <script src="js/baidu-map/map3.0.js"></script>
+    <!-- Baidu点聚合 ↓↓↓ -->
+    <script type="text/javascript" src="js/baidu-map/library/TextIconOverlay_min.js"></script>
+    <script type="text/javascript" src="js/baidu-map/library/MarkerClusterer_min.js"></script>
+    <!-- Baidu绘制工具 ↓↓↓ -->
+    <script type="text/javascript" src="js/baidu-map/library/DrawingManager_min.js"></script>
+    <link rel="stylesheet" href="js/baidu-map/library/DrawingManager_min.css" />
+    <!-- 轨迹连线动画↓↓↓ -->
+    <script type="text/javascript" src="js/baidu-map/library/LuShu_min.js"></script>
+  </head>
+  <body>
+    <noscript>
+      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+    </noscript>
+    <div id="app">
+    </div>
+  </body>
+</html>
