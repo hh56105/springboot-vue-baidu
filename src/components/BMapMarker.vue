@@ -314,7 +314,7 @@ export default {
     // 绘制完毕处理
     overlayComplete(e) {
       this.chooseOverlays.push(e.overlay)
-      console.log("绘制完毕处理",this.chooseOverlays)
+      console.log("绘制完毕处理",this.pointsArr)
       this.pointsArr.forEach((item) => {
         const point = new BMap.Point(item.lng, item.lat)
         if ( BMapLib.GeoUtils.isPointInPolygon(point, this.chooseOverlays[this.chooseOverlays.length - 1])) {
@@ -327,11 +327,12 @@ export default {
             this.clickData.push({
               classN: item.classN,
               id: item.id,
-              name: item.kkmc,
-              kklx2: item.kklx2,
+              name: item.name,
+              kklx2: item.type,
               lat: item.lat,
               lng: item.lng
             })
+            bus.emit("chooseGateList",this.clickData)
             sessionStorage.setItem('mapChoose', JSON.stringify(this.clickData))
           }
         }
@@ -579,7 +580,6 @@ export default {
         this.oneMarker.xzqh = item.xzqh
         this.oneMarker.kklx2 = item.kklx2
         this.oneMarker.kkzt = item.kkzt
-        console.log(this.oneMarker)
         markers.push(this.oneMarker)
 
         // 鼠标over响应
@@ -711,7 +711,6 @@ export default {
           xzqh: item.xzqh,
           kkzt: item.kkzt
         })
-
         if (this.clickData) {
           for (let i = 0; i < this.clickData.length; i++) {
             if (item.id === this.clickData[i].id) {

@@ -67,8 +67,8 @@
       <el-table-column prop='codeGateNo' label='卡口编号' width='140' />
       <el-table-column prop='codeGateName' label='卡口名称' width='140' />
       <el-table-column label='操作'>
-        <template #default>
-          <el-button type='text' size='small' @click='handleClick'>删除</el-button>
+        <template #default="scope">
+          <el-button type='text' size='small' @click='handleDelete(scope.$index)'>删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -84,6 +84,7 @@
 <script>
 import bus from '@/utils/Bus'
 import { getTree } from '@/api/tree'
+import { ElMessageBox } from "element-plus";
 
 export default {
   name: 'test',
@@ -104,12 +105,15 @@ export default {
           name: '父级1'
         },
       ],
+      //地图框选数组，用于显示分页列表
+      chooseGateList:[],
       defaultProps: {
         children: 'children',
         label: 'name'
       },
       // select的值
       typeValue: [],
+      allData: [],
       form: {
         name: '',
         region: '',
@@ -120,15 +124,7 @@ export default {
         resource: '',
         desc: ''
       },
-      tableData: [
-        {
-          codeGateNo: '22123214213123',
-          codeGateName: '广州市越秀区',
-          kkjd:'',
-          kkwd:'',
-          kklx2:''
-        }
-      ],
+      tableData: [],
       page: 1, //第几页
       size: 3, //一页多少条
       total: 0, //总条目数
@@ -160,9 +156,20 @@ export default {
     clickChoose(e) {
       this.selectType = e
       bus.emit('click', e)
+      bus.on("chooseGateList",(data)=>{
+        this.chooseGateList.push({
+          codeGateNo: data.id,
+          codeGateName: data.name
+        })
+        this.allData.push(this.chooseGateList)
+        this.getTableData2()
+      })
     },
     clear() {
       this.selectType = 0
+      this.allData = this.allData.filter(item => !this.chooseGateList.includes(item))
+      console.log(this.allData)
+      this.getTableData2()
       bus.emit('clear')
     },
     //文件上传
@@ -171,7 +178,20 @@ export default {
       // upload.value.handleStart(files[0])
     },
     //删除按钮
-    handleClick() {
+    handleDelete(index) {
+      ElMessageBox.confirm("是否确认删除", "提示", {
+        confirmButtonText: "确认",
+        cancelButtonText: "取消",
+        type: "warning",
+      }).then(() => {
+        this.handleSure(index);
+      }).catch(() => {
+        });
+    },
+    handleSure(val) {
+      this.dialogVisible = false;
+      this.allData.splice(val, 1);
+      this.getTableData2()
     },
     //树形控件-获取行政区划树
     handleNodeClick() {
@@ -184,43 +204,33 @@ export default {
     },
     confirmCheckBox() {
       const codeGateData = this.$refs.tree.getCheckedNodes()
-      console.log("所选卡口为：",codeGateData)
-      // 利用set没有重复的值这一特性, 实现数组去重。Array.form方法可以将 Set 结构转为数组。
-      codeGateData.forEach()
-      if (codeGateData.children){
-        codeGateData.children.forEach((item)=>{
-          this.tableData.push({
-            codeGateNo: item.id,
-            codeGateName: item.name
-          })
-        })
-      }else {
-        codeGateData.forEach((item)=>{
-          this.tableData.push({
-            codeGateNo: item.id,
-            codeGateName: item.name
-          })
-        })
-      }
-      console.log(codeGateData)
-    },
-    //获取表格数据，自行分页(slice)
-    getTableData() {
-      //tableData为全部数据
-      this.tableData = this.tableData.slice(
-        (this.page - 1) * this.size,
-        this.page * this.size
-      );
+      this.forData(codeGateData)
       this.total=this.tableData.length
+      this.getTableData2()
+    },
+    forData(list){
+      list.forEach((item)=>{
+        if (item.children && item.children.length){
+          return this.forData(item.children)
+        }
+        else if (item.id.length>6) {
+          this.allData.push({
+            codeGateNo: item.id,
+            codeGateName: item.name
+          })
+        }
+      })
     },
     //获取表格数据，自行分页（splice）
     getTableData2() {
-      let data=JSON.parse(JSON.stringify(this.tableData))
-      this.tableData = data.splice(
-        (this.page - 1) * this.size,
-        this.size
-      );
-      this.total=this.tableData.length
+      if (this.allData && this.allData.length){
+        let data=JSON.parse(JSON.stringify(this.allData))
+        this.tableData = data.splice(
+          (this.page - 1) * this.size,
+          this.size
+        );
+      }
+      this.total=this.allData.length
     },
     //page改变时的回调函数，参数为当前页码
     currentChange(val) {
@@ -236,8 +246,7 @@ export default {
       this.getTableData2();
     },
   },
-  watch(){
-    this.getTableData2();
+  watch: {
   }
 }
 </script>
