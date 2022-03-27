@@ -1,5 +1,4 @@
 <template>
-    <div>1111111111111111111111</div>
     <div class="u202203">
     <el-form :inline= "true" :model= "formInline" class="demo-form-inline" style="text-align: left;margin-left: 10%;">
     <el-form-item label="名称">

@@ -67,8 +67,8 @@ var BMapLib = window.BMapLib = BMapLib || {};
     this._clusters = []
     this._boundMarkers = [] // 添加一个当前可视范围的marker数组
     var k = h || {}
-    this._gridSize = k.gridSize || 2
-    this._maxZoom = k.maxZoom || 14
+    this._gridSize = k.gridSize || 60
+    this._maxZoom = k.maxZoom || 15
     this._minClusterSize = k.minClusterSize || 2
     this._isAverageCenter = false
     if (k.isAverageCenter != undefined) {

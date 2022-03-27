@@ -1,6 +1,6 @@
 <template>
     <div class="containt">
-        <el-container style="height='100%'">
+        <el-container style="height:100%">
             <el-aside width="456px">
                     <test class="search"></test>
             </el-aside>
@@ -15,7 +15,7 @@
 import LeftBar from "./LeftBar"
 import test from "./test"
 import BaiduMap from "./BMapMarker"
- 
+
 export default {
     data() {
         return {

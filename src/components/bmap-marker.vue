@@ -1,5 +1,5 @@
 <template>
-  <div id='allmap' class="app-container">
+  <div class="app-container">
     <div class="operation">
       <div class="marker-choose">
         <span class="span-title">卡口选择</span>
@@ -9,39 +9,27 @@
           <el-radio class="radio-circle" :label="2" @click.native.prevent="clickChoose(2)"> 圈选 </el-radio>
         </el-radio-group>
         <span class="span-total"> 已选择总数：{{ arr.length }} </span>
-        <el-button type="primary"  @click="clear">清除</el-button>
+        <el-button type="primary" icon="el-icon-delete" @click="clear" />
+      </div>
+      <div class="relation-build">
+        <span class="span-title">线路预判</span>
+        <el-input v-model="startPoint" :disabled="true" class="marker-point" placeholder="起点" />
+        <el-input v-model="endPoint" :disabled="true" class="marker-point" placeholder="终点" />
+        <el-button type="primary" @click="buildRouting"> 模糊预测 </el-button>
+        <el-button type="primary" @click="buildRoutingEx"> 精确预测 </el-button>
       </div>
     </div>
     <div id="container" />
   </div>
 </template>
+
 <script>
+
 import { getGateGroup, getGateList } from '@/api/baidu'
-import { reactive } from 'vue'
-import  bus  from '@/utils/Bus.js'
+import { bd09_to_wgs84, isInsidePolygon, getCarRoutingPlan, getCarRoutingPlanEx, getGatesAllRelations } from '@/utils/hnkkUtils'
 
 export default {
   name: 'BMapMarker',
-  setup() {
-    reactive({
-      oneMarker:{
-        id: "",
-        kkmc: "",
-        xzqh: "",
-        kklx2: "",
-        kkzt: ""
-      }
-    })
-    return  {}
-  },
-  created() {
-    bus.on('click', (data) => {
-      this.clickChoose(data)
-    })
-    bus.on("clear",() => {
-      this.clear()
-    })
-  },
   data() {
     return {
       // 选择方式（不选为0，框选为1，圈选为2）
@@ -112,14 +100,14 @@ export default {
       ]
     }
   },
+
   mounted() {
     this.init()
   },
   destroyed() {
     this.clear()
-    bus.off('click');
-    bus.off('clear');
   },
+
   methods: {
     // 初始化数据,显示地图
     async init() {
@@ -164,7 +152,6 @@ export default {
 
     // 开启绘制模式
     enableDrawingMode() {
-      console.log('开启绘制模式')
       this.drawingManager.close()
       this.map.disableDragging() // 禁止地图拖拽
       if (this.selectType === 1) {
@@ -314,10 +301,12 @@ export default {
     // 绘制完毕处理
     overlayComplete(e) {
       this.chooseOverlays.push(e.overlay)
-      console.log("绘制完毕处理",this.chooseOverlays)
+      const box = this.chooseOverlays[this.chooseOverlays.length - 1]
+      const pathPointArray = box.getPath()
+      // 以当前可视范围的所有point与overlay的path比较
       this.pointsArr.forEach((item) => {
         const point = new BMap.Point(item.lng, item.lat)
-        if ( BMapLib.GeoUtils.isPointInPolygon(point, this.chooseOverlays[this.chooseOverlays.length - 1])) {
+        if (isInsidePolygon(point, pathPointArray)) {
           // 换为选中图标
           if (document.querySelector(item.classN) != null) {
             document.querySelector(item.classN).firstChild.firstChild.src = this.getIconHovel(item.type)
@@ -340,7 +329,7 @@ export default {
       this.disableDrawingMode()
     },
 
-    // 获取广东各市区的卡口数量
+    // 获取湖南各市区的卡口数量
     async getProvinceData() {
       const data = {
         total: '',
@@ -348,21 +337,24 @@ export default {
         children: []
       }
       await getGateGroup().then(response => {
-        data.total = response.data.total
-        response.data.rows.forEach(item => {
+        data.total = response.total
+        response.data.forEach(item => {
           data.level.push({
+            dmlb: item.dmlb,
             dmsm1: item.dmsm1,
+            dmsm2: item.dmsm2,
             dmsm4: item.dmsm4.split(','),
+            dmsx: item.dmsx,
+            dmz: item.dmz,
             total: item.total
           })
+          data.children.push(item.childrenList)
         })
-        data.children.push(response.data.childrenList)
-        console.log(data.children)
       })
       return data
     },
 
-    // 获取广东全省卡口数据
+    // 获取湖南全省卡口数据
     async getHNGateList() {
       const data = {
         total: '',
@@ -414,11 +406,11 @@ export default {
       if (this.map.getZoom() <= 8) {
         // <=8 级，显示按省汇总
         this.map.clearOverlays()
-        const point = new BMap.Point(113.270708, 23.136617)
+        const point = new BMap.Point(110.7999, 27.925153)
         const opts = {
           position: point
         }
-        const province = '广东省' + this.HNProvince + '个'
+        const province = '湖南省' + this.HNProvince + '个'
         const label = new BMap.Label(province, opts)
         label.setStyle(style1)
         this.map.addOverlay(label)
@@ -492,7 +484,7 @@ export default {
       let centerPoint = new BMap.Point(113.275, 28.21)
       this.map.centerAndZoom(centerPoint, 8)
       this.map.setMinZoom(8)
-      this.map.setMaxZoom(17)
+      this.map.setMaxZoom(18)
       this.map.enableScrollWheelZoom(true)
       this.map.enableDoubleClickZoom(true)
 
@@ -507,11 +499,11 @@ export default {
       }
 
       // 初始化时，处理和上点展示全省卡口数量（蓝色方块）
-      const point = new BMap.Point(113.270708, 23.136617)
+      const point = new BMap.Point(110.7999, 27.925153)
       const opts = {
         position: point // 指定文本标注所在的地理位置
       }
-      const province = '广东省' + this.HNProvince + '个'
+      const province = '湖南省' + this.HNProvince + '个'
       const label = new BMap.Label(province, opts)
       label.setStyle(style)
       this.map.addOverlay(label)
@@ -522,13 +514,12 @@ export default {
         centerPoint = new BMap.Point(jd, wd)
         this.map.centerAndZoom(centerPoint, 9)
       })
+
       // 移动地图时，根据地图级别来判断是否需要请求上点的
       this.map.addEventListener('moveend', (e) => {
         if (this.map.getZoom() >= 15) {
           if (this.clusterer) {
-            setTimeout(() => {
-              this.setClass(false)
-            }, 100)
+            setTimeout(() => { this.setClass(false) }, 100)
           }
         }
       })
@@ -541,12 +532,9 @@ export default {
             this.markerPoint()
             this.showPointIndex = 2
             this.disableChoose = false
-            bus.emit("openChoose",this.disableChoose)
           }
           if (this.clusterer) {
-            setTimeout(() => {
-              this.setClass(true)
-            }, 100)
+            setTimeout(() => { this.setClass(true) }, 100)
           }
         }
         if (this.map.getZoom() < 15) {
@@ -556,7 +544,6 @@ export default {
             this.clusterer.clearMarkers()
             this.disableChoose = true
             this.disableDrawingMode()
-            bus.emit("openChoose",this.disableChoose)
           }
           this.initProvinceData()
         }
@@ -571,15 +558,14 @@ export default {
       const markers = []
 
       // 根据接口返回来的卡口数据，根据kklx2的字段来过滤，每条数据对应的卡口类型是什么，来决定用哪个icon上点
-      this.mapData.rows.forEach((item) => {
+      this.mapData.forEach((item) => {
         const point = new BMap.Point(item.kkjd, item.kkwd) // 将标注点转化成地图上的点
         this.oneMarker = new BMap.Marker(point, { icon: this.getIconImage(item.kklx2) })
-        this.oneMarker.id = item.kkbh
-        this.oneMarker.kkmc = item.kkmc
-        this.oneMarker.xzqh = item.xzqh
-        this.oneMarker.kklx2 = item.kklx2
-        this.oneMarker.kkzt = item.kkzt
-        console.log(this.oneMarker)
+        this.$set(this.oneMarker, 'id', item.kkbh)
+        this.$set(this.oneMarker, 'kkmc', item.kkmc)
+        this.$set(this.oneMarker, 'kklx2', item.kklx2)
+        this.$set(this.oneMarker, 'xzqh', item.xzqh)
+        this.$set(this.oneMarker, 'kkzt', item.kkzt)
         markers.push(this.oneMarker)
 
         // 鼠标over响应
@@ -656,18 +642,19 @@ export default {
             }
           }
         })
+
+        // 上下文菜单处理
+        this.rightClickHandler(this.oneMarker)
       })
 
-      if (this.clusterer) {
-        this.clusterer.clearMarkers()
-      }
+      if (this.clusterer) { this.clusterer.clearMarkers() }
       this.clusterer = new BMapLib.MarkerClusterer(this.map, { markers: markers })
     },
 
     // 移入marker事件处理（弹出信息框）
     markerPointMouseover(data) {
       const { line, item } = data
-      const html = `<div style='background:transparent; padding: 10px;font-size: 14px; color: #000'>${item.kkmc}</div>`
+      const html = `<div style="background:transparent; padding: 10px;font-size: 14px; color: #000">${item.kkmc}</div>`
       const opts = {
         // boxStyle: {
         width: 210, // 信息窗口宽度
@@ -692,8 +679,9 @@ export default {
 
       // 这里item.AC应该是一个类DOM的属性，3.0版代码混淆后为AC
       this.boundMarker.forEach((item) => {
-          item.Ac.id = item.id
-          item.Ac.className = `${item.Ac.className} ${item.ea}` // 这里使得item在地图上能被querySelector得到！
+        item.Ac.id = item.id
+        item.Ac.className = `${item.Ac.className} ${item.ea}` // 这里使得item在地图上能被querySelector得到！
+
         // 有侧边栏和顶部栏的时候 要减掉相应的宽高 才是真正的定位点
         const rect = document
           .querySelector(`.${item.ea}`)
@@ -724,6 +712,148 @@ export default {
       if (this.clickData) {
         sessionStorage.setItem('mapChoose', JSON.stringify(this.clickData))
       }
+    },
+
+    // Marker右键处理
+    rightClickHandler(marker) {
+      // 上下文菜单
+      const markerMenu = new BMap.ContextMenu()
+      markerMenu.addItem(new BMap.MenuItem('设为起点', this.setStartPoint.bind(marker, marker)))
+      markerMenu.addItem(new BMap.MenuItem('设为终点', this.setEndPoint.bind(marker, marker)))
+      marker.addContextMenu(markerMenu)
+    },
+    setStartPoint(marker) {
+      this.startMarker = marker
+      this.startPoint = marker.id
+    },
+    setEndPoint(marker) {
+      this.endMarker = marker
+      this.endPoint = marker.id
+    },
+
+    // 预测路径(路径准确，但经过卡口不准确）
+    async buildRouting() {
+      if (this.startPoint === this.endPoint) {
+        alert('起点与终点相同！')
+        return
+      }
+      // 清除上一次预判
+      this.planRoutes = []
+      this.clearCustomerOverlays('routing')
+      // 进行新的预判
+      const pointArr = []
+      pointArr.push(bd09_to_wgs84(this.startMarker.point.lng, this.startMarker.point.lat))
+      pointArr.push(bd09_to_wgs84(this.endMarker.point.lng, this.endMarker.point.lat))
+      await getCarRoutingPlan(pointArr, this.planRoutes)
+      setTimeout(async() => {
+        this.showRouting()
+      }, 100)
+    },
+
+    // 预测路径(精确预测, 加上了卡口关系数据）
+    // 1. 如果起终点是卡口，则从neo4j取出路径来
+    // 2. 路径取出后，相应卡口即可选中变色
+    // 3. 按卡口路径再调用Graphhopper绘出路网路径
+    async buildRoutingEx() {
+      if (this.startPoint === this.endPoint) {
+        alert('起点与终点相同！')
+        return
+      }
+      // 清除上一次预判
+      this.planRoutes = []
+      this.clearCustomerOverlays('routing')
+      getGatesAllRelations(this.startPoint, this.endPoint, this.dealWithPaths)
+    },
+
+    // 卡口间的路径处理
+    dealWithPaths(paths) {
+      let allPathGateIds = []
+      paths.forEach((path) => {
+        const pointArr = []
+        const gateIdArr = []
+        path.forEach((gate) => {
+          pointArr.push(bd09_to_wgs84(gate.lng, gate.lat))
+          gateIdArr.push(gate.gateId)
+        })
+        getCarRoutingPlanEx(pointArr, this.planRoutes)
+        allPathGateIds = allPathGateIds.concat(gateIdArr)
+      })
+      setTimeout(async() => {
+        this.showRoutingEx(allPathGateIds)
+      }, 50)
+    },
+
+    // 显示预判路径
+    showRouting() {
+      let allPathPoints = []
+      this.planRoutes.forEach((path) => {
+        const overlay = new BMap.Polyline(path, {
+          strokeColor: this.colorLists[Math.floor(Math.random() * 6)],
+          strokeWeight: 5
+        })
+        this.map.addOverlay(overlay)
+        this.routingOverlays.push(overlay)
+        allPathPoints = allPathPoints.concat(path)
+      })
+
+      this.pointsArr.forEach((item) => {
+        const point = new BMap.Point(item.lng, item.lat)
+        for (let j = 0; j < allPathPoints.length; j++) {
+          if ((this.map.getDistance(point, allPathPoints[j])).toFixed(2) < 200) {
+            if (document.querySelector(item.classN) != null) {
+              document.querySelector(item.classN).firstChild.firstChild.src = this.getIconHovel(item.type)
+            }
+            if (!this.arr.includes(item.id)) {
+              this.arr.push(item.id)
+              this.clickData.push({
+                classN: item.classN,
+                id: item.id,
+                name: item.kkmc,
+                kklx2: item.kklx2,
+                lat: item.lat,
+                lng: item.lng
+              })
+              sessionStorage.setItem('mapChoose', JSON.stringify(this.clickData))
+            }
+            break
+          }
+        }
+      })
+    },
+
+    // 显示预判路径
+    showRoutingEx(allPathGateIds) {
+      this.planRoutes.forEach((path) => {
+        const overlay = new BMap.Polyline(path, {
+          strokeColor: this.colorLists[Math.floor(Math.random() * 6)],
+          strokeWeight: 5
+        })
+        this.map.addOverlay(overlay)
+        this.routingOverlays.push(overlay)
+      })
+
+      this.pointsArr.forEach((item) => {
+        for (let j = 0; j < allPathGateIds.length; j++) {
+          if (item.id === allPathGateIds[j]) {
+            if (document.querySelector(item.classN) != null) {
+              document.querySelector(item.classN).firstChild.firstChild.src = this.getIconHovel(item.type)
+            }
+            if (!this.arr.includes(item.id)) {
+              this.arr.push(item.id)
+              this.clickData.push({
+                classN: item.classN,
+                id: item.id,
+                name: item.kkmc,
+                kklx2: item.kklx2,
+                lat: item.lat,
+                lng: item.lng
+              })
+              sessionStorage.setItem('mapChoose', JSON.stringify(this.clickData))
+            }
+            break
+          }
+        }
+      })
     }
   }
 }
