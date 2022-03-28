@@ -314,7 +314,6 @@ export default {
     // 绘制完毕处理
     overlayComplete(e) {
       this.chooseOverlays.push(e.overlay)
-      console.log("绘制完毕处理",this.pointsArr)
       this.pointsArr.forEach((item) => {
         const point = new BMap.Point(item.lng, item.lat)
         if ( BMapLib.GeoUtils.isPointInPolygon(point, this.chooseOverlays[this.chooseOverlays.length - 1])) {
@@ -332,13 +331,15 @@ export default {
               lat: item.lat,
               lng: item.lng
             })
-            bus.emit("chooseGateList",this.clickData)
             sessionStorage.setItem('mapChoose', JSON.stringify(this.clickData))
           }
         }
       })
-      console.log(this.clickData)
       this.disableDrawingMode()
+      this.$store.commit("pushClickData",this.clickData)
+      console.log("绘制完毕处理")
+      bus.emit("drawingOver")
+      // console.log("传入前监听",this.clickData.length)
     },
 
     // 获取广东各市区的卡口数量
